@@ -6,7 +6,8 @@ Pomocí knihovny Open MPI implementujte v jazyce C++ úlohu Přiřazení pořad�
 
 1\. 6. 2022
 
-Vstup a výstup
+## Vstup a výstup
+
 Vstupem je řetěz, který reprezentuje hodnoty uzlu binárního stromu zapsaného v poli. Indexujme znaky v řetězci od 1 a uvažujme uzel, která má svou hodnotu na indexu i. Pak levý potomek tohoto uzlu má hodnotu na indexu 2*i a hodnota jeho pravého potomka se bude nacházet na indexu (2*i)+1.
 
 Na výstupu bude řetězec se stejnými znaky jako na vstupu, ale v preorder pořadí (tj. jakoby každý uzel stromu při preorder průchodu vytiskl na výstup svůj znak).
