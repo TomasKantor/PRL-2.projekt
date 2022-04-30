@@ -9,6 +9,7 @@ fi
 input=$1;
 input_size=${#input}
 processors=$((2*$input_size - 2));
+processors=$(($processors > 0 ? $processors : 0)) # non zero
 
 # compile
 mpic++ proj.cpp

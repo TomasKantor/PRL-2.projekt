@@ -39,6 +39,7 @@ inline bool is_edge_forward(int edge)
     return edge % 2;
 }
 
+// get edges to parent, left child and right child, 0 represents no edge
 void get_edges_from_vertex(unsigned int i, unsigned int vertices, unsigned int &pe, unsigned int  &le, unsigned int &re)
 {
     unsigned int min_edge = 1;
@@ -66,6 +67,8 @@ void get_edges_from_vertex(unsigned int i, unsigned int vertices, unsigned int &
     }
 }
 
+// creates adj_list indexed by edges number
+// adj_vertex_list contains start of vertex in adj_list
 void create_adj_list(unsigned int vertices, AdjList &adj_list, std::vector<int> &adj_vertex_list)
 {
     for( int i = 1; i <= vertices; i++ )
@@ -111,52 +114,25 @@ void create_adj_list(unsigned int vertices, AdjList &adj_list, std::vector<int> 
             r_item.reverse_edge_num = re + 1;
             r_item.from_vertex = i;
             r_item.to_vertex = get_right_children(i);
-            r_item.next = 0;
+            r_item.next = 0; // always last
 
             adj_list[re-1] = r_item;
         }
     }
-    
 }
 
+// prints adj_list in readible format, debug function
 void print_adj_list(AdjList adj_list)
 {
     for(auto adj_item : adj_list )
     {
-        std::cout << "f:" << adj_item.from_vertex << " t:" << adj_item.to_vertex << " e:" << adj_item.edge_num << " r:" << adj_item.reverse_edge_num << "\n";
+        std::cerr << "f:" << adj_item.from_vertex << " t:" << adj_item.to_vertex << " e:" << adj_item.edge_num << " r:" << adj_item.reverse_edge_num << "\n";
     }
 }
 
-int main(int argc, char **argv)
+// computes next edge in etour for given edge
+int compute_etour(int edge, int input_size, AdjList &adj_list, std::vector<int> &adj_vertex_list)
 {
-    MPI_Init(&argc, &argv);
-
-    int processor_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &processor_rank);
-
-    // reading input, create adjcency list
-    if( processor_rank == 0)
-    {
-        if( argc != 2)
-        {
-            std::cerr << "Requires exactly 1 argument\n";
-        }
-    }
-
-    unsigned int input_size = strlen(argv[1]);
-
-    int processors = 2*input_size - 2;
-    AdjList adj_list(processors);
-    std::vector<int> adj_vertex_list(input_size);
-    create_adj_list(input_size, adj_list, adj_vertex_list);
-
-    char *val = argv[1];
-
-    // parallel part ------------------
-
-    // compute Etour
-
-    int edge = processor_rank + 1;
     int reverse_edge = adj_list[edge-1].reverse_edge_num;
     int next_reverse_edge = adj_list[reverse_edge-1].next;
     int etour;
@@ -172,19 +148,21 @@ int main(int argc, char **argv)
     }
 
     // Etour(e) = e, for edge e to root
-
     if(edge == 2 && input_size <= 1)
     {
         etour = 2;
     }
-
     if( edge == 4)
     {
         etour = 4;
     }
 
-    // count_forward_edges = SuffixSum(Etour)
+    return etour;
+}
 
+// computes suffix sum of forward edges for given edge
+int suffix_sum_forward_edges(int edge, int processors, int etour, int processor_rank)
+{
     int my_value;
     if( is_edge_forward(edge) )
     {
@@ -231,6 +209,57 @@ int main(int argc, char **argv)
             MPI_COMM_WORLD);
     }
 
+    return my_value;
+}
+
+int main(int argc, char **argv)
+{
+    MPI_Init(&argc, &argv);
+
+    // start init
+
+    int processor_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &processor_rank);
+
+    // reading input, create adjcency list
+    if( argc != 2 )
+    {
+        if( processor_rank == 1)  
+        {
+            std::cerr << "Requires exactly 1 argument\n";
+        }
+        MPI_Finalize();
+        return 0;
+    }
+
+    unsigned int input_size = strlen(argv[1]);
+
+    if(input_size<=1)
+    {
+        if(processor_rank==0)
+        {
+            std::cout << argv[1] << std::endl;
+        }
+        MPI_Finalize();
+        return 0;
+    }
+
+    int processors = 2*input_size - 2;
+    AdjList adj_list(processors);
+    std::vector<int> adj_vertex_list(input_size);
+    create_adj_list(input_size, adj_list, adj_vertex_list);
+
+    // end init
+
+    // start parallel part
+
+    // compute Etour
+    int edge = processor_rank + 1;
+    int etour = compute_etour(edge, input_size, adj_list, adj_vertex_list);
+
+    // count_forward_edges = SuffixSum(Etour)
+    int my_value = suffix_sum_forward_edges(edge, processors, etour, processor_rank);
+    
     int vertex = 0;
     int preorder = 0;
     if(is_edge_forward(edge))
@@ -244,27 +273,28 @@ int main(int argc, char **argv)
     std::vector<int> preorder_value(processors);
 
     MPI_Gather(
-    &preorder,
-    1,
-    MPI_INT,
-    preorder_index.data(),
-    1,
-    MPI_INT,
-    0,
-    MPI_COMM_WORLD);
+        &preorder,
+        1,
+        MPI_INT,
+        preorder_index.data(),
+        1,
+        MPI_INT,
+        0,
+        MPI_COMM_WORLD);
 
     MPI_Gather(
-    &vertex,
-    1,
-    MPI_INT,
-    preorder_value.data(),
-    1,
-    MPI_INT,
-    0,
-    MPI_COMM_WORLD);
+        &vertex,
+        1,
+        MPI_INT,
+        preorder_value.data(),
+        1,
+        MPI_INT,
+        0,
+        MPI_COMM_WORLD);
 
     if(processor_rank==0)
     {
+        char *val = argv[1];
         preorder_arr[0] = 1;
 
         for(int i = 0; i < processors;i++)
