@@ -1,3 +1,7 @@
+# Hodnocení
+
+9/10 bodů
+
 # Přiřazení pořadí preorder vrcholům
 
 Pomocí knihovny Open MPI implementujte v jazyce C++ úlohu Přiřazení pořadí preorder vrcholům tak, jak byla uvedena na přednášce PRL.
